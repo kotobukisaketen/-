@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { Customer, OrderItem, FreeInputItem, Order } from '@/lib/types';
+import { Customer, OrderItem, FreeInputItem, Order, Product } from '@/lib/types';
 import ProductList from '@/components/ProductList';
 import FreeInputField from '@/components/FreeInputField';
 import OrderSummary from '@/components/OrderSummary';
@@ -20,29 +20,29 @@ export default function OrderPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (customerId) {
-            fetchCustomer();
-        }
-    }, [customerId]);
+        const fetchCustomer = async () => {
+            if (!customerId) return;
 
-    const fetchCustomer = async () => {
-        setLoading(true);
-        const { data, error } = await supabase
-            .from('customers')
-            .select(`
-                *,
-                products (*)
-            `)
-            .eq('id', customerId)
-            .single();
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('customers')
+                .select(`
+                    *,
+                    products (*)
+                `)
+                .eq('id', customerId)
+                .single();
 
-        if (error || !data) {
-            console.error('Error fetching customer:', error);
-            setCustomer(null);
-        } else {
+            if (error || !data) {
+                console.error('Error fetching customer:', error);
+                setCustomer(null);
+                setLoading(false);
+                return;
+            }
+
             setCustomer(data);
             // Initialize order items with all products having 0 quantity
-            const initialOrderItems = (data.products || []).map((p: any) => ({
+            const initialOrderItems = (data.products || []).map((p: Product) => ({
                 product: {
                     id: p.id,
                     name: p.name,
@@ -52,9 +52,11 @@ export default function OrderPage() {
                 unit: 'バラ' as const
             }));
             setOrderItems(initialOrderItems);
-        }
-        setLoading(false);
-    };
+            setLoading(false);
+        };
+
+        fetchCustomer();
+    }, [customerId]);
 
     const handleQuantityChange = (productId: string, quantity: number) => {
         setOrderItems(prev =>

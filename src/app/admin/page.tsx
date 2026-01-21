@@ -23,18 +23,6 @@ export default function AdminPage() {
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
-    useEffect(() => {
-        const checkUser = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                router.replace('/login');
-            } else {
-                fetchCustomers();
-            }
-        };
-        checkUser();
-    }, []);
-
     const handleLogout = async () => {
         await supabase.auth.signOut();
         router.replace('/login');
@@ -68,6 +56,19 @@ export default function AdminPage() {
         }
         setLoading(false);
     };
+
+    useEffect(() => {
+        const checkUser = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                router.replace('/login');
+            } else {
+                fetchCustomers();
+            }
+        };
+        checkUser();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleCopyUrl = async (customerId: string) => {
         const url = generateCustomerOrderUrl(customerId, window.location.origin);
