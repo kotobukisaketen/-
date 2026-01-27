@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Customer, Product } from '@/lib/types';
 import { generateCustomerOrderUrl, copyToClipboard } from '@/lib/utils';
 import Header from '@/components/Header';
@@ -25,13 +25,22 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+interface EditState {
+    name: string;
+    volume: string;
+    setName: (v: string) => void;
+    setVolume: (v: string) => void;
+    onSave: () => void;
+    onCancel: () => void;
+}
+
 // Sortable Item Component
 function SortableItem({ product, isEditing, onEdit, onDelete, editState }: {
     product: Product;
     isEditing: boolean;
     onEdit: (p: Product) => void;
     onDelete: (id: string) => void;
-    editState: any;
+    editState: EditState;
 }) {
     const {
         attributes,
@@ -153,7 +162,7 @@ export default function AdminPage() {
         toast.success('ログアウトしました');
     };
 
-    const fetchCustomers = async () => {
+    const fetchCustomers = useCallback(async () => {
         if (customers.length === 0) setLoading(true);
 
         const { data, error } = await supabase
@@ -169,13 +178,15 @@ export default function AdminPage() {
             toast.error('データの取得に失敗しました');
         } else {
             // Sort products by display_order then created_at
-            const sortedData = data?.map(customer => ({
+            const sortedData = data?.map((customer: Customer) => ({
                 ...customer,
-                products: customer.products.sort((a: any, b: any) => {
+                products: (customer.products || []).sort((a: Product, b: Product) => {
                     const orderA = a.display_order ?? Number.MAX_SAFE_INTEGER;
                     const orderB = b.display_order ?? Number.MAX_SAFE_INTEGER;
                     if (orderA !== orderB) return orderA - orderB;
-                    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                    return dateA - dateB;
                 })
             }));
 
@@ -189,7 +200,7 @@ export default function AdminPage() {
             }
         }
         setLoading(false);
-    };
+    }, [selectedCustomer, customers.length]);
 
     useEffect(() => {
         const checkUser = async () => {
@@ -201,7 +212,7 @@ export default function AdminPage() {
             }
         };
         checkUser();
-    }, []);
+    }, [fetchCustomers, router]);
 
     // ... (Keep existing handlers: handleCopyUrl, handleAddProduct, handleRemoveProduct, etc.)
     // But update them to use fetchCustomers to refresh order or maintain local state properly

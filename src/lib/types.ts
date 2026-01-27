@@ -5,6 +5,7 @@ export interface Product {
   name: string;
   volume: string;
   display_order?: number;
+  created_at?: string;
 }
 
 export interface Customer {

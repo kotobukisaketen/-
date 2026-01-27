@@ -42,11 +42,13 @@ export default function OrderPage() {
             }
 
             // Sort products by display_order then created_at
-            const sortedProducts = (data.products || []).sort((a: any, b: any) => {
+            const sortedProducts = (data.products || []).sort((a: Product, b: Product) => {
                 const orderA = a.display_order ?? Number.MAX_SAFE_INTEGER;
                 const orderB = b.display_order ?? Number.MAX_SAFE_INTEGER;
                 if (orderA !== orderB) return orderA - orderB;
-                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                return dateA - dateB;
             });
 
             setCustomer({ ...data, products: sortedProducts });

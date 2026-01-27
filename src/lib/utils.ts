@@ -1,4 +1,4 @@
-import { Customer, Order, OrderItem, FreeInputItem } from './types';
+import { Customer, Order } from './types';
 
 /**
  * 顧客データをIDで取得
