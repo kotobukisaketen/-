@@ -4,6 +4,7 @@ export interface Product {
   id: string;
   name: string;
   volume: string;
+  display_order?: number;
 }
 
 export interface Customer {
@@ -21,6 +22,8 @@ export interface OrderItem {
 export interface FreeInputItem {
   description: string;
   quantity: number;
+  volume?: string;
+  unit?: 'バラ' | 'ケース';
 }
 
 export interface Order {
@@ -28,4 +31,5 @@ export interface Order {
   customerName: string;
   items: OrderItem[];
   freeInputItems: FreeInputItem[];
+  deliveryDate?: string;
 }

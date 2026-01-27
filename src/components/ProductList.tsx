@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Product, OrderItem } from '@/lib/types';
 
 interface ProductListProps {
@@ -10,6 +11,12 @@ interface ProductListProps {
 }
 
 export default function ProductList({ products, orderItems, onQuantityChange, onUnitChange }: ProductListProps) {
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredProducts = products.filter(product =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     const getQuantity = (productId: string): number => {
         const item = orderItems.find(i => i.product.id === productId);
         return item?.quantity || 0;
@@ -24,9 +31,28 @@ export default function ProductList({ products, orderItems, onQuantityChange, on
         <div className="space-y-3">
             <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <span className="text-2xl">⭐</span>
-                お気に入り商品
+                いつもの商品
             </h2>
-            {products.map((product) => (
+
+            {/* 検索バー */}
+            <div className="mb-4 relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+                <input
+                    type="text"
+                    placeholder="商品名を検索..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 text-gray-900 bg-white border border-slate-200 rounded-xl text-base focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm"
+                />
+            </div>
+
+            {filteredProducts.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                    商品が見つかりません
+                </div>
+            )}
+
+            {filteredProducts.map((product) => (
                 <div
                     key={product.id}
                     className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center justify-between"
@@ -50,7 +76,7 @@ export default function ProductList({ products, orderItems, onQuantityChange, on
                                 min="0"
                                 value={getQuantity(product.id)}
                                 onChange={(e) => onQuantityChange(product.id, Math.max(0, parseInt(e.target.value) || 0))}
-                                className="w-14 h-10 text-center text-lg font-semibold border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-14 h-10 text-center text-lg font-semibold text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                             <button
                                 onClick={() => onQuantityChange(product.id, getQuantity(product.id) + 1)}

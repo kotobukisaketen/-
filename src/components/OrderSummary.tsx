@@ -33,10 +33,10 @@ export default function OrderSummary({ order, onClose }: OrderSummaryProps) {
         return (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-2xl p-6 max-w-md w-full">
-                    <p className="text-center text-gray-600 mb-4">注文する商品がありません</p>
+                    <p className="text-center text-gray-800 mb-4">注文する商品がありません</p>
                     <button
                         onClick={onClose}
-                        className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-medium"
+                        className="w-full py-3 bg-gray-200 text-gray-900 rounded-xl font-medium"
                     >
                         戻る
                     </button>
@@ -53,7 +53,7 @@ export default function OrderSummary({ order, onClose }: OrderSummaryProps) {
                     注文内容の確認
                 </h2>
 
-                <div className="bg-gray-50 rounded-xl p-4 mb-4 font-mono text-sm whitespace-pre-wrap">
+                <div className="bg-gray-100 rounded-xl p-4 mb-4 font-mono text-sm whitespace-pre-wrap text-gray-900">
                     {orderText}
                 </div>
 
@@ -61,8 +61,8 @@ export default function OrderSummary({ order, onClose }: OrderSummaryProps) {
                     <button
                         onClick={handleCopy}
                         className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all ${copied
-                                ? 'bg-green-500 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
                             }`}
                     >
                         <span className="text-xl">{copied ? '✓' : '📋'}</span>
@@ -79,7 +79,7 @@ export default function OrderSummary({ order, onClose }: OrderSummaryProps) {
 
                     <button
                         onClick={onClose}
-                        className="w-full py-3 text-gray-500 hover:text-gray-700 transition-colors"
+                        className="w-full py-3 text-gray-700 hover:text-gray-900 transition-colors"
                     >
                         戻る
                     </button>

@@ -16,6 +16,7 @@ export default function OrderPage() {
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
     const [freeInputItems, setFreeInputItems] = useState<FreeInputItem[]>([]);
+    const [deliveryDate, setDeliveryDate] = useState('');
     const [showSummary, setShowSummary] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -40,13 +41,23 @@ export default function OrderPage() {
                 return;
             }
 
-            setCustomer(data);
+            // Sort products by display_order then created_at
+            const sortedProducts = (data.products || []).sort((a: any, b: any) => {
+                const orderA = a.display_order ?? Number.MAX_SAFE_INTEGER;
+                const orderB = b.display_order ?? Number.MAX_SAFE_INTEGER;
+                if (orderA !== orderB) return orderA - orderB;
+                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+            });
+
+            setCustomer({ ...data, products: sortedProducts });
+
             // Initialize order items with all products having 0 quantity
-            const initialOrderItems = (data.products || []).map((p: Product) => ({
+            const initialOrderItems = sortedProducts.map((p: Product) => ({
                 product: {
                     id: p.id,
                     name: p.name,
-                    volume: p.volume
+                    volume: p.volume,
+                    display_order: p.display_order
                 },
                 quantity: 0,
                 unit: 'バラ' as const
@@ -79,14 +90,14 @@ export default function OrderPage() {
     };
 
     const handleAddFreeItem = () => {
-        setFreeInputItems(prev => [...prev, { description: '', quantity: 1 }]);
+        setFreeInputItems(prev => [...prev, { description: '', quantity: 1, volume: '', unit: 'バラ' }]);
     };
 
     const handleRemoveFreeItem = (index: number) => {
         setFreeInputItems(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleUpdateFreeItem = (index: number, field: 'description' | 'quantity', value: string | number) => {
+    const handleUpdateFreeItem = (index: number, field: 'description' | 'quantity' | 'volume' | 'unit', value: string | number) => {
         setFreeInputItems(prev =>
             prev.map((item, i) =>
                 i === index
@@ -127,6 +138,7 @@ export default function OrderPage() {
         customerName: customer.name,
         items: orderItems,
         freeInputItems,
+        deliveryDate,
     };
 
     return (
@@ -140,6 +152,20 @@ export default function OrderPage() {
 
             {/* メインコンテンツ */}
             <main className="max-w-lg mx-auto px-4 py-6 pb-28">
+                {/* 配送希望日 */}
+                <div className="mb-4 bg-blue-50 rounded-xl p-4 shadow-sm border border-blue-200 sticky top-16 z-10">
+                    <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                        <span className="text-2xl">📅</span>
+                        配送希望日
+                    </h2>
+                    <input
+                        type="date"
+                        value={deliveryDate}
+                        onChange={(e) => setDeliveryDate(e.target.value)}
+                        className="w-full px-4 py-3 text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+                    />
+                </div>
+
                 <ProductList
                     products={customer.products}
                     orderItems={orderItems}
@@ -155,6 +181,8 @@ export default function OrderPage() {
                         onUpdateItem={handleUpdateFreeItem}
                     />
                 </div>
+
+
             </main>
 
             {/* 注文ボタン */}

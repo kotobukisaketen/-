@@ -6,7 +6,7 @@ interface FreeInputFieldProps {
     freeInputItems: FreeInputItem[];
     onAddItem: () => void;
     onRemoveItem: (index: number) => void;
-    onUpdateItem: (index: number, field: 'description' | 'quantity', value: string | number) => void;
+    onUpdateItem: (index: number, field: 'description' | 'quantity' | 'volume' | 'unit', value: string | number) => void;
 }
 
 export default function FreeInputField({
@@ -33,7 +33,7 @@ export default function FreeInputField({
                             placeholder="商品名を入力..."
                             value={item.description}
                             onChange={(e) => onUpdateItem(index, 'description', e.target.value)}
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="flex-1 px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <button
                             onClick={() => onRemoveItem(index)}
@@ -43,27 +43,62 @@ export default function FreeInputField({
                             ✕
                         </button>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500">数量:</span>
-                        <button
-                            onClick={() => onUpdateItem(index, 'quantity', Math.max(0, item.quantity - 1))}
-                            className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all"
-                        >
-                            −
-                        </button>
+                    {/* 容量入力 */}
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm text-gray-500 w-12">容量:</span>
                         <input
-                            type="number"
-                            min="0"
-                            value={item.quantity}
-                            onChange={(e) => onUpdateItem(index, 'quantity', Math.max(0, parseInt(e.target.value) || 0))}
-                            className="w-12 h-8 text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            type="text"
+                            placeholder="例: 720ml"
+                            value={item.volume || ''}
+                            onChange={(e) => onUpdateItem(index, 'volume', e.target.value)}
+                            className="flex-1 px-3 py-2 text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                         />
-                        <button
-                            onClick={() => onUpdateItem(index, 'quantity', item.quantity + 1)}
-                            className="w-8 h-8 rounded-full bg-blue-500 text-white font-bold flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all"
-                        >
-                            +
-                        </button>
+                    </div>
+                    {/* 数量と単位 */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-500">数量:</span>
+                            <button
+                                onClick={() => onUpdateItem(index, 'quantity', Math.max(0, item.quantity - 1))}
+                                className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 font-bold flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all"
+                            >
+                                −
+                            </button>
+                            <input
+                                type="number"
+                                min="0"
+                                value={item.quantity}
+                                onChange={(e) => onUpdateItem(index, 'quantity', Math.max(0, parseInt(e.target.value) || 0))}
+                                className="w-12 h-8 text-center text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                                onClick={() => onUpdateItem(index, 'quantity', item.quantity + 1)}
+                                className="w-8 h-8 rounded-full bg-blue-500 text-white font-bold flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all"
+                            >
+                                +
+                            </button>
+                        </div>
+                        {/* 単位選択 */}
+                        <div className="flex bg-gray-100 p-0.5 rounded-lg">
+                            <button
+                                onClick={() => onUpdateItem(index, 'unit', 'バラ')}
+                                className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${(item.unit || 'バラ') === 'バラ'
+                                    ? 'bg-white text-blue-600 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700'
+                                    }`}
+                            >
+                                バラ
+                            </button>
+                            <button
+                                onClick={() => onUpdateItem(index, 'unit', 'ケース')}
+                                className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${item.unit === 'ケース'
+                                    ? 'bg-white text-blue-600 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700'
+                                    }`}
+                            >
+                                ケース
+                            </button>
+                        </div>
                     </div>
                 </div>
             ))}

@@ -14,6 +14,9 @@ export function formatOrderText(order: Order): string {
     const lines: string[] = [];
     lines.push('【注文内容】');
     lines.push(`顧客名: ${order.customerName}`);
+    if (order.deliveryDate) {
+        lines.push(`配送希望日: ${order.deliveryDate}`);
+    }
     lines.push('');
 
     // お気に入り商品
@@ -35,8 +38,10 @@ export function formatOrderText(order: Order): string {
         lines.push('-- 備考 --');
         for (const item of activeFreeItems) {
             lines.push('----------------------------');
-            lines.push(`・${item.description}`);
-            lines.push(`　数量：【${item.quantity}】`);
+            const volumeText = item.volume ? ` / ${item.volume}` : '';
+            lines.push(`・${item.description}${volumeText}`);
+            const unitText = item.unit ? `（${item.unit}）` : '';
+            lines.push(`　数量：【${item.quantity}】${unitText}`);
         }
         lines.push('----------------------------');
     }

@@ -16,7 +16,7 @@ export default function Home() {
         <div className="text-center mb-16">
           <div className="text-7xl mb-6">🍶</div>
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            酒屋スマート注文
+            寿酒店スマート注文
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             お客様にかんたん注文を。店員さんに正確な情報を。

@@ -6,8 +6,124 @@ import { generateCustomerOrderUrl, copyToClipboard } from '@/lib/utils';
 import Header from '@/components/Header';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-
 import { useRouter } from 'next/navigation';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+// Sortable Item Component
+function SortableItem({ product, isEditing, onEdit, onDelete, editState }: {
+    product: Product;
+    isEditing: boolean;
+    onEdit: (p: Product) => void;
+    onDelete: (id: string) => void;
+    editState: any;
+}) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({ id: product.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            {...attributes}
+            className="p-3 bg-gray-50 rounded-lg group hover:bg-gray-100 transition-colors touch-none"
+        >
+            {isEditing ? (
+                <div className="space-y-2 animate-in fade-in">
+                    <input
+                        type="text"
+                        value={editState.name}
+                        onChange={(e) => editState.setName(e.target.value)}
+                        className="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        placeholder="商品名"
+                        autoFocus
+                    />
+                    <input
+                        type="text"
+                        value={editState.volume}
+                        onChange={(e) => editState.setVolume(e.target.value)}
+                        className="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        placeholder="容量 (例: 720ml)"
+                    />
+                    <div className="flex gap-2">
+                        <button
+                            onClick={editState.onSave}
+                            className="flex-1 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-medium hover:bg-blue-600"
+                        >
+                            保存
+                        </button>
+                        <button
+                            onClick={editState.onCancel}
+                            className="flex-1 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-50"
+                        >
+                            キャンセル
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                        {/* Drag Handle */}
+                        <div
+                            {...listeners}
+                            className="cursor-move text-gray-400 hover:text-gray-600 p-1"
+                            title="ドラッグして並び替え"
+                        >
+                            ⋮⋮
+                        </div>
+                        <div>
+                            <p className="font-medium text-gray-800">{product.name}</p>
+                            {product.volume !== '-' && (
+                                <p className="text-xs text-gray-500">{product.volume}</p>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <button
+                            onClick={() => onEdit(product)}
+                            className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="編集"
+                        >
+                            ✏️
+                        </button>
+                        <button
+                            onClick={() => onDelete(product.id)}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="削除"
+                        >
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function AdminPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -20,8 +136,16 @@ export default function AdminPage() {
     const [editingProductId, setEditingProductId] = useState<string | null>(null);
     const [editProductName, setEditProductName] = useState('');
     const [editProductVolume, setEditProductVolume] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
     const router = useRouter();
+
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -30,7 +154,6 @@ export default function AdminPage() {
     };
 
     const fetchCustomers = async () => {
-        // Only show loading on initial fetch or full refresh
         if (customers.length === 0) setLoading(true);
 
         const { data, error } = await supabase
@@ -45,10 +168,21 @@ export default function AdminPage() {
             console.error('Error fetching customers:', error);
             toast.error('データの取得に失敗しました');
         } else {
-            setCustomers(data || []);
-            // Update selected customer if it exists
+            // Sort products by display_order then created_at
+            const sortedData = data?.map(customer => ({
+                ...customer,
+                products: customer.products.sort((a: any, b: any) => {
+                    const orderA = a.display_order ?? Number.MAX_SAFE_INTEGER;
+                    const orderB = b.display_order ?? Number.MAX_SAFE_INTEGER;
+                    if (orderA !== orderB) return orderA - orderB;
+                    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                })
+            }));
+
+            setCustomers(sortedData || []);
+
             if (selectedCustomer) {
-                const updatedSelected = data?.find(c => c.id === selectedCustomer.id);
+                const updatedSelected = sortedData?.find(c => c.id === selectedCustomer.id);
                 if (updatedSelected) {
                     setSelectedCustomer(updatedSelected);
                 }
@@ -67,8 +201,10 @@ export default function AdminPage() {
             }
         };
         checkUser();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // ... (Keep existing handlers: handleCopyUrl, handleAddProduct, handleRemoveProduct, etc.)
+    // But update them to use fetchCustomers to refresh order or maintain local state properly
 
     const handleCopyUrl = async (customerId: string) => {
         const url = generateCustomerOrderUrl(customerId, window.location.origin);
@@ -85,12 +221,16 @@ export default function AdminPage() {
     const handleAddProduct = async () => {
         if (!selectedCustomer || !newProductName.trim()) return;
 
+        // Get max display_order
+        const maxOrder = selectedCustomer.products.reduce((max, p) => Math.max(max, p.display_order || 0), -1);
+
         const { error } = await supabase
             .from('products')
             .insert({
                 customer_id: selectedCustomer.id,
                 name: newProductName.trim(),
                 volume: newProductVolume.trim() || '-',
+                display_order: maxOrder + 1
             });
 
         if (error) {
@@ -197,9 +337,53 @@ export default function AdminPage() {
         }
     };
 
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (active.id !== over?.id && selectedCustomer) {
+            const oldIndex = selectedCustomer.products.findIndex((p) => p.id === active.id);
+            const newIndex = selectedCustomer.products.findIndex((p) => p.id === over?.id);
+
+            // Optimistic update
+            const newProducts = arrayMove(selectedCustomer.products, oldIndex, newIndex);
+
+            // Assign new display orders
+            const updatedProducts = newProducts.map((p, index) => ({
+                ...p,
+                display_order: index
+            }));
+
+            // Update local state immediately
+            const updatedCustomer = { ...selectedCustomer, products: updatedProducts };
+            setSelectedCustomer(updatedCustomer);
+            setCustomers(prev => prev.map(c => c.id === selectedCustomer.id ? updatedCustomer : c));
+
+            // Persist to DB
+            // We need to update all affected products. For simplicity, we update all (or optimistically just the moved ones)
+            // Ideally call a stored procedure, but here we loop updates or upsert.
+            // Be careful with async loops.
+
+            try {
+                const updates = updatedProducts.map(p =>
+                    supabase
+                        .from('products')
+                        .update({ display_order: p.display_order })
+                        .eq('id', p.id)
+                );
+
+                await Promise.all(updates);
+                // toast.success('並び順を保存しました'); // No need to be too noisy
+            } catch (error) {
+                console.error('Error saving order:', error);
+                toast.error('並び順の保存に失敗しました');
+                await fetchCustomers(); // Revert on error
+            }
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-            {/* ヘッダー */}
+            {/* ... (Keep Header and main structure) ... */}
             <div className="relative">
                 <Header
                     title="管理画面"
@@ -217,7 +401,7 @@ export default function AdminPage() {
 
             <main className="max-w-4xl mx-auto px-4 py-6">
                 <div className="grid md:grid-cols-2 gap-6">
-                    {/* 顧客リスト */}
+                    {/* 顧客リスト (Keep existing) */}
                     <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -230,6 +414,18 @@ export default function AdminPage() {
                             >
                                 + 新規追加
                             </button>
+                        </div>
+
+                        {/* 検索ボックス */}
+                        <div className="mb-4 relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+                            <input
+                                type="text"
+                                placeholder="顧客名を検索..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none focus:bg-white transition-all"
+                            />
                         </div>
 
                         {showNewCustomerForm && (
@@ -264,47 +460,51 @@ export default function AdminPage() {
                             ) : customers.length === 0 ? (
                                 <div className="text-center text-gray-500 py-8">顧客がいません</div>
                             ) : (
-                                customers.map((customer) => (
-                                    <div
-                                        key={customer.id}
-                                        className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${selectedCustomer?.id === customer.id
-                                            ? 'border-blue-500 bg-blue-50 shadow-md transform scale-[1.02]'
-                                            : 'border-transparent bg-gray-50 hover:bg-gray-100 hover:border-gray-200'
-                                            }`}
-                                        onClick={() => setSelectedCustomer(customer)}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="font-bold text-gray-800">{customer.name}</p>
-                                                <p className="text-xs text-gray-500 mt-1">{customer.products?.length || 0}件の商品</p>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleCopyUrl(customer.id);
-                                                    }}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${copiedId === customer.id
-                                                        ? 'bg-green-500 text-white'
-                                                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                                        }`}
-                                                >
-                                                    {copiedId === customer.id ? '✓ コピー済' : '🔗 URL'}
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteCustomer(customer.id);
-                                                    }}
-                                                    className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600 transition-all"
-                                                    title="顧客を削除"
-                                                >
-                                                    ❌
-                                                </button>
+                                customers
+                                    .filter(customer =>
+                                        customer.name.toLowerCase().includes(searchTerm.toLowerCase())
+                                    )
+                                    .map((customer) => (
+                                        <div
+                                            key={customer.id}
+                                            className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${selectedCustomer?.id === customer.id
+                                                ? 'border-blue-500 bg-blue-50 shadow-md transform scale-[1.02]'
+                                                : 'border-transparent bg-gray-50 hover:bg-gray-100 hover:border-gray-200'
+                                                }`}
+                                            onClick={() => setSelectedCustomer(customer)}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="font-bold text-gray-800">{customer.name}</p>
+                                                    <p className="text-xs text-gray-500 mt-1">{customer.products?.length || 0}件の商品</p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleCopyUrl(customer.id);
+                                                        }}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${copiedId === customer.id
+                                                            ? 'bg-green-500 text-white'
+                                                            : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                            }`}
+                                                    >
+                                                        {copiedId === customer.id ? '✓ コピー済' : '🔗 URL'}
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteCustomer(customer.id);
+                                                        }}
+                                                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600 transition-all"
+                                                        title="顧客を削除"
+                                                    >
+                                                        ❌
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))
+                                    ))
                             )}
                         </div>
                     </div>
@@ -326,76 +526,39 @@ export default function AdminPage() {
                             {selectedCustomer && (
                                 <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
                                     <p className="font-bold text-blue-900">{selectedCustomer.name}</p>
-                                    <p className="text-xs text-blue-600">お気に入り商品リスト</p>
+                                    <p className="text-xs text-blue-600">いつもの商品リスト（ドラッグで並び替え可能）</p>
                                 </div>
                             )}
 
                             <div className="space-y-2 mb-4 max-h-[400px] overflow-y-auto pr-2">
-                                {(selectedCustomer?.products || []).map((product) => (
-                                    <div
-                                        key={product.id}
-                                        className="p-3 bg-gray-50 rounded-lg group hover:bg-gray-100 transition-colors"
+                                <DndContext
+                                    sensors={sensors}
+                                    collisionDetection={closestCenter}
+                                    onDragEnd={handleDragEnd}
+                                >
+                                    <SortableContext
+                                        items={selectedCustomer?.products || []}
+                                        strategy={verticalListSortingStrategy}
                                     >
-                                        {editingProductId === product.id ? (
-                                            <div className="space-y-2 animate-in fade-in">
-                                                <input
-                                                    type="text"
-                                                    value={editProductName}
-                                                    onChange={(e) => setEditProductName(e.target.value)}
-                                                    className="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                                    placeholder="商品名"
-                                                    autoFocus
-                                                />
-                                                <input
-                                                    type="text"
-                                                    value={editProductVolume}
-                                                    onChange={(e) => setEditProductVolume(e.target.value)}
-                                                    className="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                                    placeholder="容量 (例: 720ml)"
-                                                />
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={handleSaveEditProduct}
-                                                        className="flex-1 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-medium hover:bg-blue-600"
-                                                    >
-                                                        保存
-                                                    </button>
-                                                    <button
-                                                        onClick={handleCancelEditProduct}
-                                                        className="flex-1 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-50"
-                                                    >
-                                                        キャンセル
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="font-medium text-gray-800">{product.name}</p>
-                                                    {product.volume !== '-' && (
-                                                        <p className="text-xs text-gray-500">{product.volume}</p>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                                    <button
-                                                        onClick={() => handleStartEditProduct(product)}
-                                                        className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                                                        title="編集"
-                                                    >
-                                                        ✏️
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleRemoveProduct(product.id)}
-                                                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                        title="削除"
-                                                    >
-                                                        🗑️
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
+                                        {(selectedCustomer?.products || []).map((product) => (
+                                            <SortableItem
+                                                key={product.id}
+                                                product={product}
+                                                isEditing={editingProductId === product.id}
+                                                onEdit={handleStartEditProduct}
+                                                onDelete={handleRemoveProduct}
+                                                editState={{
+                                                    name: editProductName,
+                                                    volume: editProductVolume,
+                                                    setName: setEditProductName,
+                                                    setVolume: setEditProductVolume,
+                                                    onSave: handleSaveEditProduct,
+                                                    onCancel: handleCancelEditProduct
+                                                }}
+                                            />
+                                        ))}
+                                    </SortableContext>
+                                </DndContext>
                             </div>
 
                             <div className="border-t pt-4">
