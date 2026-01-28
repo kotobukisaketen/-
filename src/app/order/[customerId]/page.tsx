@@ -42,7 +42,7 @@ export default function OrderPage() {
             }
 
             // Sort products by display_order then created_at
-            const sortedProducts = (data.products || []).sort((a: Product, b: Product) => {
+            const sortedProducts = [...(data.products || [])].sort((a: Product, b: Product) => {
                 const orderA = a.display_order ?? Number.MAX_SAFE_INTEGER;
                 const orderB = b.display_order ?? Number.MAX_SAFE_INTEGER;
                 if (orderA !== orderB) return orderA - orderB;

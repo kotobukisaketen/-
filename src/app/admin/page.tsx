@@ -163,6 +163,7 @@ export default function AdminPage() {
     };
 
     const fetchCustomers = useCallback(async () => {
+        // Only set loading if no data to prevent flicker
         if (customers.length === 0) setLoading(true);
 
         const { data, error } = await supabase
@@ -176,11 +177,13 @@ export default function AdminPage() {
         if (error) {
             console.error('Error fetching customers:', error);
             toast.error('データの取得に失敗しました');
+            setLoading(false);
+            return null;
         } else {
             // Sort products by display_order then created_at
             const sortedData = data?.map((customer: Customer) => ({
                 ...customer,
-                products: (customer.products || []).sort((a: Product, b: Product) => {
+                products: [...(customer.products || [])].sort((a: Product, b: Product) => {
                     const orderA = a.display_order ?? Number.MAX_SAFE_INTEGER;
                     const orderB = b.display_order ?? Number.MAX_SAFE_INTEGER;
                     if (orderA !== orderB) return orderA - orderB;
@@ -190,17 +193,12 @@ export default function AdminPage() {
                 })
             }));
 
-            setCustomers(sortedData || []);
-
-            if (selectedCustomer) {
-                const updatedSelected = sortedData?.find(c => c.id === selectedCustomer.id);
-                if (updatedSelected) {
-                    setSelectedCustomer(updatedSelected);
-                }
-            }
+            const finalData = sortedData || [];
+            setCustomers(finalData);
+            setLoading(false);
+            return finalData;
         }
-        setLoading(false);
-    }, [selectedCustomer, customers.length]);
+    }, [customers.length]);
 
     useEffect(() => {
         const checkUser = async () => {
@@ -249,7 +247,11 @@ export default function AdminPage() {
             toast.error('商品の追加に失敗しました');
         } else {
             toast.success('商品を追加しました');
-            await fetchCustomers();
+            const freshData = await fetchCustomers();
+            if (freshData && selectedCustomer) {
+                const updated = freshData.find(c => c.id === selectedCustomer.id);
+                if (updated) setSelectedCustomer(updated);
+            }
             setNewProductName('');
             setNewProductVolume('');
         }
@@ -269,7 +271,11 @@ export default function AdminPage() {
             toast.error('商品の削除に失敗しました');
         } else {
             toast.success('商品を削除しました');
-            await fetchCustomers();
+            const freshData = await fetchCustomers();
+            if (freshData && selectedCustomer) {
+                const updated = freshData.find(c => c.id === selectedCustomer.id);
+                setSelectedCustomer(updated || null);
+            }
         }
     };
 
@@ -295,7 +301,11 @@ export default function AdminPage() {
             toast.error('商品の更新に失敗しました');
         } else {
             toast.success('商品を更新しました');
-            await fetchCustomers();
+            const freshData = await fetchCustomers();
+            if (freshData && selectedCustomer) {
+                const updated = freshData.find(c => c.id === selectedCustomer.id);
+                if (updated) setSelectedCustomer(updated);
+            }
             setEditingProductId(null);
             setEditProductName('');
             setEditProductVolume('');
