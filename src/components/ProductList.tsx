@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Product, OrderItem } from '@/lib/types';
+import { useSpeechToText } from '@/hooks/useSpeechToText';
 
 interface ProductListProps {
     products: Product[];
@@ -12,6 +13,18 @@ interface ProductListProps {
 
 export default function ProductList({ products, orderItems, onQuantityChange, onUnitChange }: ProductListProps) {
     const [searchTerm, setSearchTerm] = useState('');
+    const { isListening, startListening, stopListening } = useSpeechToText();
+
+    const handleSpeechSearch = () => {
+        const fieldId = 'product-search';
+        if (isListening === fieldId) {
+            stopListening();
+        } else {
+            startListening(fieldId, (text) => {
+                setSearchTerm(text);
+            });
+        }
+    };
 
     const filteredProducts = products.filter(product =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -35,15 +48,25 @@ export default function ProductList({ products, orderItems, onQuantityChange, on
             </h2>
 
             {/* 検索バー */}
-            <div className="mb-4 relative">
+            <div className="mb-4 relative sticky top-16 z-10 bg-white/90 backdrop-blur-md p-2 rounded-xl shadow-sm border border-blue-100">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
                 <input
                     type="text"
                     placeholder="商品名を検索..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 text-gray-900 bg-white border border-slate-200 rounded-xl text-base focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm"
+                    className="w-full pl-10 pr-12 py-3 text-gray-900 bg-white border border-slate-200 rounded-xl text-base focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm"
                 />
+                <button
+                    onClick={handleSpeechSearch}
+                    className={`absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all ${isListening === 'product-search'
+                        ? 'bg-red-500 text-white animate-pulse'
+                        : 'text-gray-400 hover:bg-gray-100 hover:text-blue-500'
+                        }`}
+                    aria-label="音声検索"
+                >
+                    {isListening === 'product-search' ? '🛑' : '🎤'}
+                </button>
             </div>
 
             {filteredProducts.length === 0 && (

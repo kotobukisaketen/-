@@ -8,6 +8,14 @@ import FreeInputField from '@/components/FreeInputField';
 import OrderSummary from '@/components/OrderSummary';
 import Header from '@/components/Header';
 import { supabase } from '@/lib/supabase';
+import DatePicker, { registerLocale } from 'react-datepicker';
+import { ja } from 'date-fns/locale/ja';
+import { format } from 'date-fns';
+import "react-datepicker/dist/react-datepicker.css";
+import { isDeliveryAvailable } from '@/lib/dateUtils';
+
+// Register Japanese locale
+registerLocale('ja', ja);
 
 export default function OrderPage() {
     const params = useParams();
@@ -16,7 +24,8 @@ export default function OrderPage() {
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
     const [freeInputItems, setFreeInputItems] = useState<FreeInputItem[]>([]);
-    const [deliveryDate, setDeliveryDate] = useState('');
+    const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+    const [activeTab, setActiveTab] = useState<'list' | 'custom'>('list');
     const [showSummary, setShowSummary] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -140,7 +149,7 @@ export default function OrderPage() {
         customerName: customer.name,
         items: orderItems,
         freeInputItems,
-        deliveryDate,
+        deliveryDate: selectedDate ? format(selectedDate, 'yyyy/MM/dd') : undefined,
     };
 
     return (
@@ -155,36 +164,71 @@ export default function OrderPage() {
             {/* メインコンテンツ */}
             <main className="max-w-lg mx-auto px-4 py-6 pb-28">
                 {/* 配送希望日 */}
-                <div className="mb-4 bg-blue-50 rounded-xl p-4 shadow-sm border border-blue-200 sticky top-16 z-10">
+                <div className="mb-4 bg-blue-50 rounded-xl p-4 shadow-sm border border-blue-200 relative z-20">
                     <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
                         <span className="text-2xl">📅</span>
                         配送希望日
+                        <span className="text-xs font-normal text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                            月・水・金のみ (祝日除く)
+                        </span>
                     </h2>
-                    <input
-                        type="date"
-                        value={deliveryDate}
-                        onChange={(e) => setDeliveryDate(e.target.value)}
-                        className="w-full px-4 py-3 text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
-                    />
+                    <div className="relative">
+                        <DatePicker
+                            locale="ja"
+                            selected={selectedDate}
+                            onChange={(date: Date | null) => setSelectedDate(date)}
+                            filterDate={isDeliveryAvailable}
+                            dateFormat="yyyy/MM/dd"
+                            minDate={new Date()}
+                            placeholderText="日付を選択してください"
+                            className="w-full px-4 py-3 text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg cursor-pointer"
+                            wrapperClassName="w-full"
+                        />
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                            ▼
+                        </div>
+                    </div>
                 </div>
 
-                <ProductList
-                    products={customer.products}
-                    orderItems={orderItems}
-                    onQuantityChange={handleQuantityChange}
-                    onUnitChange={handleUnitChange}
-                />
+                {/* タブ切り替え */}
+                <div className="flex bg-white rounded-xl p-1 shadow-sm mb-6 border border-gray-200">
+                    <button
+                        onClick={() => setActiveTab('list')}
+                        className={`flex-1 py-2.5 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'list'
+                            ? 'bg-blue-500 text-white shadow-md'
+                            : 'text-gray-500 hover:bg-gray-50'
+                            }`}
+                    >
+                        <span>⭐</span>
+                        いつものリスト
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('custom')}
+                        className={`flex-1 py-2.5 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'custom'
+                            ? 'bg-blue-500 text-white shadow-md'
+                            : 'text-gray-500 hover:bg-gray-50'
+                            }`}
+                    >
+                        <span>✏️</span>
+                        自由入力
+                    </button>
+                </div>
 
-                <div className="mt-8">
+                {activeTab === 'list' ? (
+                    <ProductList
+                        products={customer.products}
+                        orderItems={orderItems}
+                        onQuantityChange={handleQuantityChange}
+                        onUnitChange={handleUnitChange}
+                    />
+                ) : (
                     <FreeInputField
                         freeInputItems={freeInputItems}
                         onAddItem={handleAddFreeItem}
                         onRemoveItem={handleRemoveFreeItem}
                         onUpdateItem={handleUpdateFreeItem}
                     />
-                </div>
-
-
+                )}
             </main>
 
             {/* 注文ボタン */}

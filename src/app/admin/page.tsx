@@ -142,9 +142,16 @@ export default function AdminPage() {
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
     const [newCustomerName, setNewCustomerName] = useState('');
+
+    // Product Editing State
     const [editingProductId, setEditingProductId] = useState<string | null>(null);
     const [editProductName, setEditProductName] = useState('');
     const [editProductVolume, setEditProductVolume] = useState('');
+
+    // Customer Editing State
+    const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
+    const [editCustomerName, setEditCustomerName] = useState('');
+
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
     const router = useRouter();
@@ -212,9 +219,6 @@ export default function AdminPage() {
         checkUser();
     }, [fetchCustomers, router]);
 
-    // ... (Keep existing handlers: handleCopyUrl, handleAddProduct, handleRemoveProduct, etc.)
-    // But update them to use fetchCustomers to refresh order or maintain local state properly
-
     const handleCopyUrl = async (customerId: string) => {
         const url = generateCustomerOrderUrl(customerId, window.location.origin);
         const success = await copyToClipboard(url);
@@ -226,6 +230,8 @@ export default function AdminPage() {
             toast.error('コピーに失敗しました');
         }
     };
+
+    // --- Product Handlers ---
 
     const handleAddProduct = async () => {
         if (!selectedCustomer || !newProductName.trim()) return;
@@ -318,6 +324,8 @@ export default function AdminPage() {
         setEditProductVolume('');
     };
 
+    // --- Customer Handlers ---
+
     const handleAddCustomer = async () => {
         if (!newCustomerName.trim()) return;
 
@@ -358,6 +366,45 @@ export default function AdminPage() {
         }
     };
 
+    const handleStartEditCustomer = (customer: Customer) => {
+        setEditingCustomerId(customer.id);
+        setEditCustomerName(customer.name);
+    };
+
+    const handleSaveEditCustomer = async () => {
+        if (!editingCustomerId || !editCustomerName.trim()) return;
+
+        const { error } = await supabase
+            .from('customers')
+            .update({ name: editCustomerName.trim() })
+            .eq('id', editingCustomerId);
+
+        if (error) {
+            console.error('Error updating customer:', error);
+            toast.error('顧客名の更新に失敗しました');
+        } else {
+            toast.success('顧客名を更新しました');
+            const updatedCustomer: Customer = {
+                ...(customers.find(c => c.id === editingCustomerId)!),
+                name: editCustomerName.trim()
+            };
+
+            setCustomers(prev => prev.map(c => c.id === editingCustomerId ? updatedCustomer : c));
+
+            if (selectedCustomer?.id === editingCustomerId) {
+                setSelectedCustomer(updatedCustomer);
+            }
+
+            setEditingCustomerId(null);
+            setEditCustomerName('');
+        }
+    };
+
+    const handleCancelEditCustomer = () => {
+        setEditingCustomerId(null);
+        setEditCustomerName('');
+    };
+
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
 
@@ -380,10 +427,6 @@ export default function AdminPage() {
             setCustomers(prev => prev.map(c => c.id === selectedCustomer.id ? updatedCustomer : c));
 
             // Persist to DB
-            // We need to update all affected products. For simplicity, we update all (or optimistically just the moved ones)
-            // Ideally call a stored procedure, but here we loop updates or upsert.
-            // Be careful with async loops.
-
             try {
                 const updates = updatedProducts.map(p =>
                     supabase
@@ -393,7 +436,6 @@ export default function AdminPage() {
                 );
 
                 await Promise.all(updates);
-                // toast.success('並び順を保存しました'); // No need to be too noisy
             } catch (error) {
                 console.error('Error saving order:', error);
                 toast.error('並び順の保存に失敗しました');
@@ -494,36 +536,72 @@ export default function AdminPage() {
                                                 }`}
                                             onClick={() => setSelectedCustomer(customer)}
                                         >
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="font-bold text-gray-800">{customer.name}</p>
-                                                    <p className="text-xs text-gray-500 mt-1">{customer.products?.length || 0}件の商品</p>
+                                            {editingCustomerId === customer.id ? (
+                                                <div className="animate-in fade-in space-y-2 cursor-default" onClick={e => e.stopPropagation()}>
+                                                    <input
+                                                        type="text"
+                                                        value={editCustomerName}
+                                                        onChange={(e) => setEditCustomerName(e.target.value)}
+                                                        className="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                        autoFocus
+                                                    />
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={handleSaveEditCustomer}
+                                                            className="flex-1 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-medium hover:bg-blue-600"
+                                                        >
+                                                            保存
+                                                        </button>
+                                                        <button
+                                                            onClick={handleCancelEditCustomer}
+                                                            className="flex-1 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-50"
+                                                        >
+                                                            キャンセル
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleCopyUrl(customer.id);
-                                                        }}
-                                                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${copiedId === customer.id
-                                                            ? 'bg-green-500 text-white'
-                                                            : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                                            }`}
-                                                    >
-                                                        {copiedId === customer.id ? '✓ コピー済' : '🔗 URL'}
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleDeleteCustomer(customer.id);
-                                                        }}
-                                                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600 transition-all"
-                                                        title="顧客を削除"
-                                                    >
-                                                        ❌
-                                                    </button>
+                                            ) : (
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="font-bold text-gray-800">{customer.name}</p>
+                                                        <p className="text-xs text-gray-500 mt-1">{customer.products?.length || 0}件の商品</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleStartEditCustomer(customer);
+                                                            }}
+                                                            className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                                                            title="名前を編集"
+                                                        >
+                                                            ✏️
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleCopyUrl(customer.id);
+                                                            }}
+                                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${copiedId === customer.id
+                                                                ? 'bg-green-500 text-white'
+                                                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                                }`}
+                                                        >
+                                                            {copiedId === customer.id ? '✓' : '🔗 URL'}
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteCustomer(customer.id);
+                                                            }}
+                                                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600 transition-all"
+                                                            title="顧客を削除"
+                                                        >
+                                                            ❌
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            )}
                                         </div>
                                     ))
                             )}
